@@ -23,7 +23,7 @@ class SearchRequest(BaseModel):
     ai_technology_type: Optional[str] = None
     legal_theory: Optional[str] = None
     industry_sector: Optional[str] = None
-    is_class_action: Optional[bool] = None
+    class_action: Optional[str] = None
 
     # ── Date Filters ─────────────────────────────────────────────────
     date_filed_from: Optional[date] = None

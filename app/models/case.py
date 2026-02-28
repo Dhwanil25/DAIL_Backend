@@ -4,7 +4,7 @@ Case model — the central entity in DAIL.
 Represents a single AI-related litigation case tracked from complaint forward.
 Preserves all original Caspio fields while adding enriched metadata.
 
-Column names match the 001_initial_schema Alembic migration exactly.
+Column names match the 002_align_gwu_form_fields Alembic migration.
 """
 
 from datetime import date, datetime
@@ -43,21 +43,26 @@ class Case(Base):
     )
     case_slug: Mapped[Optional[str]] = mapped_column(String(255))
     brief_description: Mapped[Optional[str]] = mapped_column(Text)
-    facts: Mapped[Optional[str]] = mapped_column(Text)
+    summary_of_facts: Mapped[Optional[str]] = mapped_column(Text, doc="Summary of Facts and Activity to Date")
 
     # ── AI-Specific Classification ───────────────────────────────────
     area_of_application: Mapped[Optional[str]] = mapped_column(String(255), index=True)
+    area_of_application_list: Mapped[Optional[str]] = mapped_column(String(255), doc="Standardised area dropdown value")
     issue_text: Mapped[Optional[str]] = mapped_column(Text)
+    issue_list: Mapped[Optional[str]] = mapped_column(String(255), doc="Standardised issue dropdown value")
     cause_of_action: Mapped[Optional[str]] = mapped_column(Text)
     algorithm_name: Mapped[Optional[str]] = mapped_column(String(500))
+    algorithm_list: Mapped[Optional[str]] = mapped_column(String(500), doc="Standardised algorithm dropdown value")
     algorithm_description: Mapped[Optional[str]] = mapped_column(Text)
 
     # ── Jurisdiction & Filing ────────────────────────────────────────
-    is_class_action: Mapped[bool] = mapped_column(Boolean, default=False)
+    class_action: Mapped[Optional[str]] = mapped_column(String(50), doc="Class action status: Yes/No/Putative")
     jurisdiction_name: Mapped[Optional[str]] = mapped_column(String(255))
     jurisdiction_type: Mapped[Optional[str]] = mapped_column(String(100), index=True)
     jurisdiction_state: Mapped[Optional[str]] = mapped_column(String(100))
     jurisdiction_municipality: Mapped[Optional[str]] = mapped_column(String(255))
+    jurisdiction_filed: Mapped[Optional[str]] = mapped_column(String(255), doc="Original filing jurisdiction")
+    current_jurisdiction: Mapped[Optional[str]] = mapped_column(String(255), doc="Where case currently resides")
 
     # ── Status & Dates ───────────────────────────────────────────────
     status_disposition: Mapped[Optional[str]] = mapped_column(String(100), index=True)
@@ -69,8 +74,13 @@ class Case(Base):
     keywords: Mapped[Optional[str]] = mapped_column(Text)
     lead_case: Mapped[Optional[str]] = mapped_column(String(50))
     related_cases: Mapped[Optional[str]] = mapped_column(Text)
-    notes: Mapped[Optional[str]] = mapped_column(Text)
+    progress_notes: Mapped[Optional[str]] = mapped_column(Text, doc="Progress notes")
+    researcher: Mapped[Optional[str]] = mapped_column(String(255), doc="Researcher tracking this case")
     last_updated_by: Mapped[Optional[str]] = mapped_column(String(100))
+    published_opinions: Mapped[bool] = mapped_column(Boolean, default=False, doc="Has published opinions?")
+    summary_of_significance: Mapped[Optional[str]] = mapped_column(Text, doc="Summary of case significance")
+    most_recent_activity: Mapped[Optional[str]] = mapped_column(Text, doc="Description of most recent activity")
+    most_recent_activity_date: Mapped[Optional[date]] = mapped_column(Date, doc="Date of most recent activity")
 
     # ── Enriched Classification (JSONB) ──────────────────────────────
     ai_technology_types: Mapped[Optional[dict]] = mapped_column(JSONB, default=list)

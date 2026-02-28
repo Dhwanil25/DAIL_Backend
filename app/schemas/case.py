@@ -1,7 +1,7 @@
 """
 Case schemas — request/response models for the Cases API.
 
-Field names match the database migration (001_initial_schema) exactly.
+Field names match the database migration (002_align_gwu_form_fields).
 """
 
 from datetime import date, datetime
@@ -63,17 +63,22 @@ class CaseBase(BaseModel):
     caption: str = Field(..., min_length=1, description="Full case caption")
     case_slug: Optional[str] = Field(None, max_length=255)
     brief_description: Optional[str] = None
-    facts: Optional[str] = None
+    summary_of_facts: Optional[str] = Field(None, description="Summary of Facts and Activity to Date")
     area_of_application: Optional[str] = Field(None, max_length=255)
+    area_of_application_list: Optional[str] = Field(None, max_length=255, description="Standardised area dropdown")
     algorithm_name: Optional[str] = Field(None, max_length=500)
+    algorithm_list: Optional[str] = Field(None, max_length=500, description="Standardised algorithm dropdown")
     algorithm_description: Optional[str] = None
     issue_text: Optional[str] = None
+    issue_list: Optional[str] = Field(None, max_length=255, description="Standardised issue dropdown")
     cause_of_action: Optional[str] = None
-    is_class_action: bool = False
+    class_action: Optional[str] = Field(None, max_length=50, description="Class action status: Yes/No/Putative")
     jurisdiction_name: Optional[str] = Field(None, max_length=255)
     jurisdiction_type: Optional[str] = Field(None, max_length=100)
     jurisdiction_state: Optional[str] = Field(None, max_length=100)
     jurisdiction_municipality: Optional[str] = Field(None, max_length=255)
+    jurisdiction_filed: Optional[str] = Field(None, max_length=255, description="Original filing jurisdiction")
+    current_jurisdiction: Optional[str] = Field(None, max_length=255, description="Current jurisdiction")
     status_disposition: Optional[str] = Field(None, max_length=100)
     filed_date: Optional[date] = None
     closed_date: Optional[date] = None
@@ -81,8 +86,13 @@ class CaseBase(BaseModel):
     keywords: Optional[str] = None
     lead_case: Optional[str] = Field(None, max_length=50)
     related_cases: Optional[str] = None
-    notes: Optional[str] = None
+    progress_notes: Optional[str] = None
+    researcher: Optional[str] = Field(None, max_length=255, description="Researcher tracking this case")
     last_updated_by: Optional[str] = Field(None, max_length=100)
+    published_opinions: bool = False
+    summary_of_significance: Optional[str] = None
+    most_recent_activity: Optional[str] = None
+    most_recent_activity_date: Optional[date] = None
     ai_technology_types: Optional[list[str]] = None
     legal_theories: Optional[list[str]] = None
     industry_sectors: Optional[list[str]] = None
@@ -98,17 +108,22 @@ class CaseUpdate(BaseModel):
     caption: Optional[str] = Field(None, min_length=1)
     case_slug: Optional[str] = None
     brief_description: Optional[str] = None
-    facts: Optional[str] = None
+    summary_of_facts: Optional[str] = None
     area_of_application: Optional[str] = None
+    area_of_application_list: Optional[str] = None
     algorithm_name: Optional[str] = None
+    algorithm_list: Optional[str] = None
     algorithm_description: Optional[str] = None
     issue_text: Optional[str] = None
+    issue_list: Optional[str] = None
     cause_of_action: Optional[str] = None
-    is_class_action: Optional[bool] = None
+    class_action: Optional[str] = None
     jurisdiction_name: Optional[str] = None
     jurisdiction_type: Optional[str] = None
     jurisdiction_state: Optional[str] = None
     jurisdiction_municipality: Optional[str] = None
+    jurisdiction_filed: Optional[str] = None
+    current_jurisdiction: Optional[str] = None
     status_disposition: Optional[str] = None
     filed_date: Optional[date] = None
     closed_date: Optional[date] = None
@@ -116,8 +131,13 @@ class CaseUpdate(BaseModel):
     keywords: Optional[str] = None
     lead_case: Optional[str] = None
     related_cases: Optional[str] = None
-    notes: Optional[str] = None
+    progress_notes: Optional[str] = None
+    researcher: Optional[str] = None
     last_updated_by: Optional[str] = None
+    published_opinions: Optional[bool] = None
+    summary_of_significance: Optional[str] = None
+    most_recent_activity: Optional[str] = None
+    most_recent_activity_date: Optional[date] = None
     ai_technology_types: Optional[list[str]] = None
     legal_theories: Optional[list[str]] = None
     industry_sectors: Optional[list[str]] = None
@@ -153,6 +173,6 @@ class CaseListResponse(BaseModel):
     jurisdiction_type: Optional[str] = None
     filed_date: Optional[date] = None
     status_disposition: Optional[str] = None
-    is_class_action: bool = False
+    class_action: Optional[str] = None
     created_at: datetime
     updated_at: datetime

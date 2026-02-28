@@ -54,7 +54,7 @@ class IngestionService:
             issue_text=row.get("issue_text"),
             cause_of_action=row.get("cause_of_action"),
             algorithm_name=row.get("algorithm_name"),
-            is_class_action=bool(row.get("is_class_action")),
+            class_action=row.get("class_action", "No"),
             organizations_involved=row.get("organizations_involved"),
             jurisdiction_name=row.get("jurisdiction_name"),
             jurisdiction_type=row.get("jurisdiction_type"),
@@ -63,7 +63,7 @@ class IngestionService:
             status_disposition=row.get("status_disposition"),
             filed_date=row.get("filed_date"),
             closed_date=row.get("closed_date"),
-            facts=row.get("facts"),
+            summary_of_facts=row.get("summary_of_facts") or row.get("facts"),
             keywords=row.get("keywords"),
         )
 
