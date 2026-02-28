@@ -1,100 +1,71 @@
 """
 DAIL Backend - FastAPI Application Entry Point
 
-Configures and launches the DAIL REST API with middleware,
-routers, startup/shutdown events, and OpenAPI documentation.
+Modernising the Database of AI Litigation (DAIL).
+Four-table PostgreSQL schema matching Caspio exports,
+RESTful CRUD, full-text search, analytics dashboard,
+and LLM-powered endpoints (GPT-4o + Gemini).
 """
 
+import logging
 from contextlib import asynccontextmanager
-from collections.abc import AsyncGenerator
 
-import redis.asyncio as aioredis
-import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.gzip import GZipMiddleware
 
 from app.config import get_settings
-from app.api.v1.router import api_router
-from app.middleware.rate_limit import RateLimitMiddleware
-from app.middleware.audit import AuditMiddleware
+from app.api.v1.router import router as v1_router
 
 settings = get_settings()
-logger = structlog.get_logger()
 
-# ── Redis client (shared across the app) ─────────────────────────────────
-redis_client: aioredis.Redis | None = None
+# ── Logging ──────────────────────────────────────────────────────────
+logging.basicConfig(
+    level=getattr(logging, settings.LOG_LEVEL, logging.INFO),
+    format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
+)
+logger = logging.getLogger("dail")
 
 
+# ── Lifespan ─────────────────────────────────────────────────────────
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    """Manage application startup and shutdown."""
-    global redis_client
-
-    # Startup
-    logger.info("Starting DAIL Backend", env=settings.APP_ENV)
-    try:
-        redis_client = aioredis.from_url(
-            settings.REDIS_URL,
-            encoding="utf-8",
-            decode_responses=True,
-        )
-        await redis_client.ping()
-        logger.info("Redis connected")
-    except Exception as e:
-        logger.warning("Redis unavailable, caching disabled", error=str(e))
-        redis_client = None
-
-    app.state.redis = redis_client
-
+async def lifespan(app: FastAPI):
+    logger.info("DAIL Backend starting …")
     yield
-
-    # Shutdown
-    if redis_client:
-        await redis_client.close()
-    logger.info("DAIL Backend shutdown complete")
+    logger.info("DAIL Backend shutting down …")
 
 
-def create_application() -> FastAPI:
-    """Application factory."""
-    app = FastAPI(
-        title="Database of AI Litigation (DAIL) API",
-        description=(
-            "A modern REST API for the Database of AI Litigation — "
-            "cataloging litigation involving artificial intelligence technologies. "
-            "Tracks cases from complaint forward across federal, state, and international jurisdictions."
-        ),
-        version="1.0.0",
-        docs_url="/docs",
-        redoc_url="/redoc",
-        openapi_url="/openapi.json",
-        lifespan=lifespan,
-        license_info={
-            "name": "MIT",
-            "url": "https://opensource.org/licenses/MIT",
-        },
-        contact={
-            "name": "GW Law - Ethical Technology Initiative",
-            "url": "https://blogs.gwu.edu/law-eti/",
-        },
-    )
+# ── App ──────────────────────────────────────────────────────────────
+app = FastAPI(
+    title="DAIL – Database of AI Litigation API",
+    description=(
+        "REST API for the Database of AI Litigation.  Provides CRUD access to "
+        "four core tables (cases, dockets, documents, secondary sources), "
+        "full-text search, analytics, and LLM-powered endpoints for natural-"
+        "language querying (GPT-4o) and document image extraction (Gemini)."
+    ),
+    version="2.0.0",
+    lifespan=lifespan,
+    docs_url="/docs",
+    redoc_url="/redoc",
+)
 
-    # ── Middleware (order matters: last added = first executed) ───────
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=settings.allowed_origins_list,
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
-    app.add_middleware(GZipMiddleware, minimum_size=1000)
-    app.add_middleware(AuditMiddleware)
-    app.add_middleware(RateLimitMiddleware)
+# ── CORS ─────────────────────────────────────────────────────────────
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.ALLOWED_ORIGINS.split(","),
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-    # ── Routers ──────────────────────────────────────────────────────
-    app.include_router(api_router, prefix=settings.API_V1_PREFIX)
-
-    return app
+# ── Routes ───────────────────────────────────────────────────────────
+app.include_router(v1_router, prefix=settings.API_V1_PREFIX)
 
 
-app = create_application()
+@app.get("/", include_in_schema=False)
+async def root():
+    return {
+        "service": "DAIL Backend",
+        "version": "2.0.0",
+        "docs": "/docs",
+    }

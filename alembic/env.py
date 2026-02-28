@@ -13,11 +13,7 @@ from app.config import get_settings
 from app.database import Base
 
 # Import all models so Alembic discovers them
-from app.models import (  # noqa: F401
-    court, case, docket, opinion, citation,
-    party, judge, document, secondary_source,
-    ai_classification, audit, provenance,
-)
+from app.models import Case, Docket, Document, SecondarySource  # noqa: F401
 
 config = context.config
 settings = get_settings()

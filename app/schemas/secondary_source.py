@@ -1,33 +1,28 @@
-"""
-SecondarySource schemas — request/response models.
-"""
+"""Pydantic schemas for the Secondary Sources table."""
 
-from datetime import date, datetime
 from typing import Optional
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, ConfigDict
 
 
 class SecondarySourceBase(BaseModel):
-    title: Optional[str] = None
-    link: Optional[str] = None
-    source_name: Optional[str] = Field(None, max_length=500)
-    author: Optional[str] = Field(None, max_length=500)
-    publication_date: Optional[date] = None
-    source_type: Optional[str] = Field(None, max_length=100)
+    case_number: int
+    secondary_source_link: Optional[str] = None
+    secondary_source_title: Optional[str] = None
 
 
 class SecondarySourceCreate(SecondarySourceBase):
-    case_id: int
-
-
-class SecondarySourceUpdate(SecondarySourceBase):
+    """Create a secondary source. case_number required."""
     pass
+
+
+class SecondarySourceUpdate(BaseModel):
+    """Update a secondary source. All fields optional."""
+    case_number: Optional[int] = None
+    secondary_source_link: Optional[str] = None
+    secondary_source_title: Optional[str] = None
 
 
 class SecondarySourceResponse(SecondarySourceBase):
     model_config = ConfigDict(from_attributes=True)
     id: int
-    case_id: int
-    created_at: datetime
-    updated_at: datetime
