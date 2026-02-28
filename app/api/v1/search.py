@@ -55,8 +55,8 @@ async def search(
         query = query.where(Case.status_disposition == request.status)
     if request.area_of_application:
         query = query.where(Case.area_of_application.ilike(f"%{request.area_of_application}%"))
-    if request.is_class_action is not None:
-        query = query.where(Case.is_class_action == request.is_class_action)
+    if request.class_action is not None:
+        query = query.where(Case.class_action.ilike(f"%{request.class_action}%"))
     if request.date_filed_from:
         query = query.where(Case.filed_date >= request.date_filed_from)
     if request.date_filed_to:
@@ -108,8 +108,8 @@ async def search(
         snippet = None
         if c.brief_description:
             snippet = c.brief_description[:300]
-        elif c.facts:
-            snippet = c.facts[:300]
+        elif c.summary_of_facts:
+            snippet = c.summary_of_facts[:300]
 
         hits.append(
             SearchHit(

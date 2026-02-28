@@ -38,7 +38,7 @@ async def list_cases(
     jurisdiction: Optional[str] = Query(None, description="Filter by jurisdiction name"),
     jurisdiction_type: Optional[str] = Query(None, description="Filter by jurisdiction type"),
     area_of_application: Optional[str] = Query(None, description="Filter by area of application"),
-    is_class_action: Optional[bool] = Query(None, description="Filter class actions"),
+    class_action: Optional[str] = Query(None, description="Filter class actions (Yes/No/Putative)"),
     keyword: Optional[str] = Query(None, description="Keyword search in caption and description"),
     sort_by: str = Query("created_at", description="Sort field"),
     sort_order: str = Query("desc", description="Sort direction: asc or desc"),
@@ -57,8 +57,8 @@ async def list_cases(
         query = query.where(Case.jurisdiction_type == jurisdiction_type)
     if area_of_application:
         query = query.where(Case.area_of_application.ilike(f"%{area_of_application}%"))
-    if is_class_action is not None:
-        query = query.where(Case.is_class_action == is_class_action)
+    if class_action is not None:
+        query = query.where(Case.class_action.ilike(f"%{class_action}%"))
     if keyword:
         query = query.where(
             or_(
@@ -166,7 +166,18 @@ async def create_case(
                 detail=f"Case with record_number {case_in.record_number} already exists",
             )
 
-    case = Case(**case_in.model_dump(exclude_unset=True))
+    data = case_in.model_dump(exclude_unset=True)
+
+    # Auto-generate record_number if not supplied
+    if not data.get("record_number"):
+        from sqlalchemy import text as sa_text
+        row = await db.execute(sa_text("SELECT nextval('cases_id_seq')"))
+        next_id = row.scalar()
+        data["record_number"] = f"DAIL-{next_id:04d}"
+        # Reset sequence so the actual INSERT gets the same id
+        await db.execute(sa_text(f"SELECT setval('cases_id_seq', {next_id - 1})"))
+
+    case = Case(**data)
     db.add(case)
     await db.flush()
     await db.refresh(case)
