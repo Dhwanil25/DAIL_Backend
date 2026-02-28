@@ -16,6 +16,7 @@ from app.api.v1.documents import router as documents_router
 from app.api.v1.secondary_sources import router as secondary_sources_router
 from app.api.v1.search import router as search_router
 from app.api.v1.analytics import router as analytics_router
+from app.api.v1.courtlistener import router as courtlistener_router
 
 api_router = APIRouter()
 
@@ -33,3 +34,6 @@ api_router.include_router(
 )
 api_router.include_router(search_router, prefix="/search", tags=["Search"])
 api_router.include_router(analytics_router, prefix="/analytics", tags=["Analytics"])
+api_router.include_router(
+    courtlistener_router, prefix="/courtlistener", tags=["CourtListener"]
+)
