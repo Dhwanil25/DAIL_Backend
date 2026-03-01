@@ -1,8 +1,8 @@
 # DAIL Backend
 
-**Database of AI Litigation** — A production-grade REST API for tracking, classifying, and analyzing AI-related litigation in the United States.
+**Database of AI Litigation** — A REST API for tracking, classifying, and analyzing AI-related litigation, built with **FastAPI + PostgreSQL**.
 
-Built with **FastAPI + PostgreSQL + Redis + Celery**, migrating from the legacy Caspio platform with full CourtListener integration.
+Migrated from legacy Caspio platform — schema matches Caspio exports exactly. Includes optional LLM integration (OpenAI GPT-4o for search/summarisation, Google Gemini for document image extraction).
 
 ---
 
@@ -10,23 +10,23 @@ Built with **FastAPI + PostgreSQL + Redis + Celery**, migrating from the legacy 
 
 ```bash
 # 1. Clone and configure
-cp .env.example .env
-# Edit .env with your database credentials and CourtListener API token
+git clone https://github.com/Dhwanil25/DAIL_Backend.git
+cd DAIL_Backend
+cp .env.example .env          # edit AI keys if desired
 
-# 2. Start all services with Docker
+# 2. Start services
 docker compose up -d
 
 # 3. Run database migrations
 docker compose run --rm migrate
 
-# 4. Seed reference data
-docker compose exec api python -m scripts.seed_courts
-
-# 5. Import existing Caspio data
-docker compose exec api python -m scripts.migrate_caspio
+# 4. Seed data from Caspio Excel exports (place .xlsx files in project root)
+docker compose build api      # rebuild to include xlsx files
+docker compose up -d api
+docker compose exec api python scripts/seed_from_excel.py
 ```
 
-The API is now available at **http://localhost:8000**  
+The API is now available at **http://localhost:8000**
 Interactive docs at **http://localhost:8000/docs**
 
 ---
@@ -36,14 +36,24 @@ Interactive docs at **http://localhost:8000/docs**
 | Component | Technology |
 |-----------|-----------|
 | API Framework | FastAPI (Python 3.12) |
-| Database | PostgreSQL 16 (JSONB, tsvector, GIN indexes) |
+| Database | PostgreSQL 16 (tsvector, GIN indexes) |
 | ORM | SQLAlchemy 2.0 (async) |
 | Migrations | Alembic |
-| Cache / Rate Limit | Redis 7 |
-| Task Queue | Celery |
-| Citation Parsing | eyecite |
-| External Data | CourtListener REST API v4.4 |
+| AI / LLM | OpenAI GPT-4o, Google Gemini (optional) |
 | Deployment | Docker + Docker Compose |
+
+---
+
+## Database Schema (4 tables)
+
+| Table | Rows | Description |
+|-------|------|-------------|
+| `cases` | 375 | AI litigation cases (35 columns incl. full-text search) |
+| `dockets` | 378 | Court docket entries per case |
+| `documents` | 841 | Court documents, orders, opinions |
+| `secondary_sources` | 377 | News articles, academic coverage |
+
+All child tables reference `cases.record_number` via foreign key.
 
 ---
 
@@ -52,26 +62,32 @@ Interactive docs at **http://localhost:8000/docs**
 ```
 DAIL_Backend/
 ├── app/
-│   ├── main.py              # FastAPI application factory
-│   ├── config.py             # Pydantic settings
-│   ├── database.py           # Async SQLAlchemy engine
-│   ├── models/               # 13 SQLAlchemy models
-│   ├── schemas/              # Pydantic request/response schemas
-│   ├── api/v1/               # Versioned REST endpoints
-│   ├── services/             # Business logic layer
-│   │   ├── courtlistener.py  # CourtListener API client
-│   │   ├── citation_service.py
-│   │   ├── classification_service.py
-│   │   ├── entity_resolution.py
-│   │   ├── search_service.py
-│   │   └── ingestion_service.py
-│   ├── tasks/                # Celery async tasks
-│   ├── middleware/            # Rate limiting, audit logging
-│   └── utils/                # Pagination, validators
-├── alembic/                  # Database migrations
-├── scripts/                  # Data import & seeding scripts
-├── tests/                    # pytest + httpx async test suite
-├── docs/                     # Architecture, API ref, migration guide
+│   ├── main.py                # FastAPI application
+│   ├── config.py              # Pydantic settings
+│   ├── database.py            # Async SQLAlchemy engine
+│   ├── models/                # 4 SQLAlchemy ORM models
+│   │   ├── case.py            # Cases (35 columns)
+│   │   ├── docket.py          # Dockets (FK → cases)
+│   │   ├── document.py        # Documents (FK → cases)
+│   │   └── secondary_source.py
+│   ├── schemas/               # Pydantic request/response schemas
+│   ├── api/v1/                # Versioned REST endpoints
+│   │   ├── cases.py           # Full CRUD + record-number lookup
+│   │   ├── dockets.py         # CRUD filtered by case
+│   │   ├── documents.py       # CRUD filtered by case
+│   │   ├── secondary_sources.py
+│   │   ├── search.py          # Full-text search (tsvector)
+│   │   ├── analytics.py       # Dashboard stats
+│   │   ├── ai.py              # LLM endpoints (GPT-4o, Gemini)
+│   │   └── health.py          # Liveness check
+│   └── services/
+│       └── ai_service.py      # GPT-4o + Gemini integration
+├── alembic/                   # Database migrations
+│   └── versions/
+│       ├── 001_caspio_schema.py
+│       └── 002_add_document_field.py
+├── scripts/
+│   └── seed_from_excel.py     # Import Caspio XLSX → PostgreSQL
 ├── docker-compose.yml
 ├── Dockerfile
 └── requirements.txt
@@ -81,63 +97,64 @@ DAIL_Backend/
 
 ## API Endpoints
 
-| Resource | Endpoints | Description |
-|----------|-----------|-------------|
-| Cases | 9 | Full CRUD + filters, soft delete, record number lookup |
-| Courts | 4 | Court definitions linked to CourtListener |
-| Dockets | 4 | Court filings per case |
-| Opinions | 5 | Cluster + individual opinion CRUD |
-| Citations | 5 | Citation links + citing/cited-by queries |
-| Parties | 4 | Litigant entities with role assignment |
-| Judges | 3 | Judicial officers |
-| Documents | 4 | Court documents with RECAP integration |
-| Secondary Sources | 4 | News, academic articles |
-| Search | 1 | Full-text + faceted search |
-| Analytics | 1 | Dashboard statistics |
-| Health | 1 | Liveness check |
+| Resource | Prefix | Endpoints | Description |
+|----------|--------|-----------|-------------|
+| Cases | `/cases` | GET, POST, PATCH, DELETE | Full CRUD, record-number lookup, pagination |
+| Dockets | `/dockets` | GET, POST, PATCH, DELETE | Filter by `case_number` |
+| Documents | `/documents` | GET, POST, PATCH, DELETE | Filter by `case_number` |
+| Secondary Sources | `/secondary-sources` | GET, POST, PATCH, DELETE | Filter by `case_number` |
+| Search | `/search` | GET | Full-text search across cases |
+| Analytics | `/analytics/summary` | GET | Dashboard stats (status, jurisdiction, area breakdowns) |
+| AI | `/ai/*` | POST | NL search, summarise, trends, classify, extract (requires API keys) |
+| Health | `/health` | GET | Liveness check |
 
-Full API reference: [docs/API_REFERENCE.md](docs/API_REFERENCE.md)
+All endpoints are prefixed with `/api/v1`.
 
 ---
 
-## Key Features
+## Seeding Data
 
-- **Caspio Migration**: Import existing XLSX exports preserving all fields + provenance
-- **CourtListener Integration**: Async API client with rate limiting, enrichment pipeline
-- **Full-Text Search**: PostgreSQL tsvector with weighted fields and GIN indexes
-- **AI Classification**: Rule-based detection of 15 AI tech types, 11 legal theories
-- **Citation Extraction**: eyecite + CourtListener verification
-- **Entity Resolution**: Jaro-Winkler name matching for parties and judges
-- **Audit Trail**: Every change logged with old/new values, IP, user, timestamp
-- **Data Provenance**: Source tracking for every record (Caspio, CourtListener, manual)
+Place the 4 Caspio Excel exports in the project root:
+
+- `Case_Table_2026-Feb-21_1952.xlsx`
+- `Docket_Table_2026-Feb-21_2003.xlsx`
+- `Document_Table_2026-Feb-21_2002.xlsx`
+- `Secondary_Source_Coverage_Table_2026-Feb-21_2058.xlsx`
+
+Then run:
+
+```bash
+docker compose exec api python scripts/seed_from_excel.py
+```
+
+The script clears existing data, reads all Excel sheets, maps columns to DB fields, and inserts with FK validation.
 
 ---
 
 ## Development
 
 ```bash
-# Install dependencies
+# Install dependencies locally
 pip install -r requirements.txt
 
-# Run locally (requires PostgreSQL and Redis)
+# Run locally (requires PostgreSQL)
 uvicorn app.main:app --reload
 
-# Run tests
-pytest tests/ -v
-
-# Run linting
-ruff check app/
-mypy app/
+# Run with Docker
+docker compose up -d
 ```
 
 ---
 
-## Documentation
+## Environment Variables
 
-- [Implementation Plan](docs/IMPLEMENTATION_PLAN.md) — Phased build roadmap
-- [Architecture](docs/ARCHITECTURE.md) — System design and data model
-- [API Reference](docs/API_REFERENCE.md) — Complete endpoint documentation
-- [Migration Guide](docs/MIGRATION_GUIDE.md) — Caspio → PostgreSQL migration steps
+See [.env.example](.env.example) for all configuration options:
+
+| Variable | Description |
+|----------|-------------|
+| `DATABASE_URL` | PostgreSQL async connection string |
+| `OPENAI_API_KEY` | OpenAI API key (optional — enables AI endpoints) |
+| `GEMINI_API_KEY` | Google Gemini API key (optional — enables image extraction) |
 
 ---
 

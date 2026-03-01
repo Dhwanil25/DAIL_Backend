@@ -114,8 +114,8 @@ class CaseResponse(CaseBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    date_added: datetime
-    last_update: datetime
+    date_added: Optional[datetime] = None
+    last_update: Optional[datetime] = None
 
 
 class CaseDetailResponse(CaseResponse):

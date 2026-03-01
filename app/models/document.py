@@ -30,6 +30,7 @@ class Document(Base):
     date: Mapped[Optional[date]] = mapped_column(Date)
     link: Mapped[Optional[str]] = mapped_column(Text)
     cite_or_reference: Mapped[Optional[str]] = mapped_column(Text)
+    document: Mapped[Optional[str]] = mapped_column(Text)
 
     # ── Relationship ─────────────────────────────────────────────────
     case: Mapped["Case"] = relationship(back_populates="documents")

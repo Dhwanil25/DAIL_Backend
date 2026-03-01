@@ -14,6 +14,7 @@ class DocumentBase(BaseModel):
     date: Optional[DateType] = None
     link: Optional[str] = None
     cite_or_reference: Optional[str] = None
+    document: Optional[str] = None
 
 
 class DocumentCreate(DocumentBase):
@@ -28,6 +29,7 @@ class DocumentUpdate(BaseModel):
     date: Optional[DateType] = None
     link: Optional[str] = None
     cite_or_reference: Optional[str] = None
+    document: Optional[str] = None
 
 
 class DocumentResponse(DocumentBase):
