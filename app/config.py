@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     DATABASE_URL_SYNC: str = "postgresql://dail:dail_password@localhost:5432/dail_db"
 
     # ── AI / LLM Keys ───────────────────────────────────────────────
+    OPENROUTER_API_KEY: str = ""
     OPENAI_API_KEY: str = ""
     GEMINI_API_KEY: str = ""
 

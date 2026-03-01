@@ -2,13 +2,16 @@
 DAIL Backend - AI Service
 
 LLM integration layer:
-  • OpenAI GPT-4o  → natural-language search, case summarisation, trend
-                     analysis, auto-classification
-  • Google Gemini  → court-document image extraction
+  • GPT-4o-mini (via OpenRouter) → natural-language search, case
+                                   summarisation, trend analysis,
+                                   auto-classification
+  • Gemini 3 Flash Preview (direct Google API) → court-document image
+                                                  extraction
 """
 
 from __future__ import annotations
 
+import base64
 import json
 import logging
 from typing import Any, Optional
@@ -23,16 +26,26 @@ from app.config import get_settings
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
-# ── Clients ──────────────────────────────────────────────────────────
-_openai_client: Optional[AsyncOpenAI] = None
+# ── OpenRouter Client (for GPT-4o-mini) ──────────────────────────────
+_openrouter_client: Optional[AsyncOpenAI] = None
+OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+GPT_MODEL = "openai/gpt-4o-mini"
+
+
+def _get_openrouter() -> AsyncOpenAI:
+    """Singleton AsyncOpenAI client pointed at OpenRouter."""
+    global _openrouter_client
+    if _openrouter_client is None:
+        _openrouter_client = AsyncOpenAI(
+            api_key=settings.OPENROUTER_API_KEY,
+            base_url=OPENROUTER_BASE_URL,
+        )
+    return _openrouter_client
+
+
+# ── Gemini Client (direct Google API) ────────────────────────────────
 _gemini_configured = False
-
-
-def _get_openai() -> AsyncOpenAI:
-    global _openai_client
-    if _openai_client is None:
-        _openai_client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
-    return _openai_client
+GEMINI_MODEL = "gemini-3-flash-preview"
 
 
 def _ensure_gemini() -> None:
@@ -63,7 +76,7 @@ _FIELD_DESCRIPTION = "\n".join(
 
 
 # =====================================================================
-#  1. Natural-Language Search
+#  1. Natural-Language Search  (GPT-4o-mini via OpenRouter)
 # =====================================================================
 async def natural_language_search(
     query: str, db: AsyncSession
@@ -71,9 +84,8 @@ async def natural_language_search(
     """Convert a plain-English question into SQL filters via GPT,
     execute the query, and return results with a GPT summary."""
 
-    client = _get_openai()
+    client = _get_openrouter()
 
-    # Step 1 — Ask GPT for structured filters
     system_prompt = f"""You are a legal-database query assistant for the
 Database of AI Litigation (DAIL).  Given a natural-language query, extract
 structured search parameters.
@@ -95,7 +107,7 @@ Rules:
 • Do NOT invent column names outside the list above."""
 
     resp = await client.chat.completions.create(
-        model="gpt-4o",
+        model=GPT_MODEL,
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": query},
@@ -108,7 +120,6 @@ Rules:
     keywords: list[str] = parsed.get("keywords", [])
     explanation: str = parsed.get("explanation", "")
 
-    # Step 2 — Build a safe parameterised query
     conditions: list[str] = []
     params: dict[str, Any] = {}
     valid_columns = {f[0] for f in FILTERABLE_FIELDS}
@@ -135,7 +146,6 @@ Rules:
     rows = (await db.execute(sql, params)).mappings().all()
     cases = [dict(r) for r in rows]
 
-    # Step 3 — GPT summary of results
     if cases:
         summary_prompt = (
             f"The user asked: \"{query}\"\n\n"
@@ -145,7 +155,7 @@ Rules:
             "researcher.  Do not fabricate information."
         )
         summary_resp = await client.chat.completions.create(
-            model="gpt-4o",
+            model=GPT_MODEL,
             messages=[
                 {"role": "system", "content": "You are a legal research assistant."},
                 {"role": "user", "content": summary_prompt},
@@ -168,12 +178,12 @@ Rules:
 
 
 # =====================================================================
-#  2. Case Summarisation
+#  2. Case Summarisation  (GPT-4o-mini via OpenRouter)
 # =====================================================================
 async def summarize_case(case_data: dict[str, Any]) -> dict[str, Any]:
     """Generate a structured summary for a single case."""
 
-    client = _get_openai()
+    client = _get_openrouter()
     prompt = f"""Summarise this AI-litigation case for a legal researcher.
 
 Case: {case_data.get('caption', 'N/A')}
@@ -200,7 +210,7 @@ Provide:
 Be concise and accurate.  Only use information provided above."""
 
     resp = await client.chat.completions.create(
-        model="gpt-4o",
+        model=GPT_MODEL,
         messages=[
             {"role": "system", "content": "You are a legal research assistant specialising in AI litigation."},
             {"role": "user", "content": prompt},
@@ -216,16 +226,15 @@ Be concise and accurate.  Only use information provided above."""
 
 
 # =====================================================================
-#  3. Trend Analysis
+#  3. Trend Analysis  (GPT-4o-mini via OpenRouter)
 # =====================================================================
 async def analyze_trends(
     question: str, db: AsyncSession
 ) -> dict[str, Any]:
     """Fetch aggregate data and ask GPT to identify trends."""
 
-    client = _get_openai()
+    client = _get_openrouter()
 
-    # Gather lightweight stats
     stats_sql = text("""
         SELECT
             count(*) AS total,
@@ -240,7 +249,6 @@ async def analyze_trends(
     """)
     stats = dict((await db.execute(stats_sql)).mappings().first())
 
-    # Area breakdown
     area_sql = text("""
         SELECT area_of_application, count(*) AS cnt
         FROM cases
@@ -249,7 +257,6 @@ async def analyze_trends(
     """)
     areas = [dict(r) for r in (await db.execute(area_sql)).mappings().all()]
 
-    # Issue breakdown
     issue_sql = text("""
         SELECT issue_list, count(*) AS cnt
         FROM cases
@@ -258,7 +265,6 @@ async def analyze_trends(
     """)
     issues = [dict(r) for r in (await db.execute(issue_sql)).mappings().all()]
 
-    # Year distribution
     year_sql = text("""
         SELECT EXTRACT(YEAR FROM date_action_filed)::int AS year, count(*) AS cnt
         FROM cases
@@ -279,7 +285,7 @@ async def analyze_trends(
         "paragraphs)."
     )
     resp = await client.chat.completions.create(
-        model="gpt-4o",
+        model=GPT_MODEL,
         messages=[
             {"role": "system", "content": "You are a legal analytics expert specialising in AI litigation trends."},
             {"role": "user", "content": prompt},
@@ -299,12 +305,12 @@ async def analyze_trends(
 
 
 # =====================================================================
-#  4. Auto-Classification (suggest field values for a case)
+#  4. Auto-Classification  (GPT-4o-mini via OpenRouter)
 # =====================================================================
 async def classify_case(case_data: dict[str, Any]) -> dict[str, Any]:
     """Given partial case data, suggest appropriate list-field values."""
 
-    client = _get_openai()
+    client = _get_openrouter()
     prompt = f"""You are a legal classifier for the Database of AI Litigation.
 Given the case details below, suggest the best values for each classification
 field.
@@ -325,7 +331,7 @@ Return **valid JSON** with these keys (use null if uncertain):
 }}"""
 
     resp = await client.chat.completions.create(
-        model="gpt-4o",
+        model=GPT_MODEL,
         messages=[
             {"role": "system", "content": "You are a legal data classification assistant."},
             {"role": "user", "content": prompt},
@@ -338,22 +344,21 @@ Return **valid JSON** with these keys (use null if uncertain):
 
 
 # =====================================================================
-#  5. Document Image Extraction (Gemini)
+#  5. Document Image Extraction  (Gemini 3 Flash Preview — direct API)
 # =====================================================================
 async def extract_document_from_image(
     image_url: str,
     mime_type: str = "image/png",
 ) -> dict[str, Any]:
-    """Use Google Gemini to extract structured text from a court-document
-    image (scan / screenshot)."""
+    """Use Google Gemini 3 Flash Preview to extract structured text
+    from a court-document image (scan / screenshot)."""
 
     import httpx
 
     _ensure_gemini()
-    model = genai.GenerativeModel("gemini-2.0-flash")
+    model = genai.GenerativeModel(GEMINI_MODEL)
 
-    # Download image bytes
-    async with httpx.AsyncClient() as http:
+    async with httpx.AsyncClient(follow_redirects=True) as http:
         img_resp = await http.get(image_url, timeout=30)
         img_resp.raise_for_status()
         image_bytes = img_resp.content
@@ -378,9 +383,7 @@ If a field is not identifiable, set it to null."""
     )
     raw = response.text
 
-    # Try to extract JSON from the response
     try:
-        # Gemini sometimes wraps JSON in markdown code blocks
         if "```json" in raw:
             raw = raw.split("```json")[1].split("```")[0]
         elif "```" in raw:
