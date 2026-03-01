@@ -1,77 +1,83 @@
-"""
-Secondary Sources API — CRUD endpoints.
-"""
+"""CRUD endpoints for the Secondary Sources table."""
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import get_db
-from app.api.deps import require_api_key
+from app.api.deps import get_db
 from app.models.secondary_source import SecondarySource
+from app.schemas.common import PaginatedResponse
 from app.schemas.secondary_source import (
     SecondarySourceCreate,
-    SecondarySourceUpdate,
     SecondarySourceResponse,
+    SecondarySourceUpdate,
 )
 
-router = APIRouter()
+router = APIRouter(prefix="/secondary-sources", tags=["secondary-sources"])
+
+
+@router.get("", response_model=PaginatedResponse[SecondarySourceResponse])
+async def list_secondary_sources(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    case_number: Optional[int] = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """List secondary sources, optionally filtered by case_number."""
+    stmt = select(SecondarySource)
+    if case_number is not None:
+        stmt = stmt.where(SecondarySource.case_number == case_number)
+
+    count_stmt = select(func.count()).select_from(stmt.subquery())
+    total = (await db.execute(count_stmt)).scalar_one()
+
+    stmt = stmt.order_by(SecondarySource.id).offset(skip).limit(limit)
+    rows = (await db.execute(stmt)).scalars().all()
+    return PaginatedResponse(items=rows, total=total, skip=skip, limit=limit)
 
 
 @router.get("/{source_id}", response_model=SecondarySourceResponse)
 async def get_secondary_source(source_id: int, db: AsyncSession = Depends(get_db)):
-    """Get a single secondary source by ID."""
-    result = await db.execute(select(SecondarySource).where(SecondarySource.id == source_id))
-    source = result.scalar_one_or_none()
-    if not source:
-        raise HTTPException(status_code=404, detail=f"Secondary source {source_id} not found")
-    return SecondarySourceResponse.model_validate(source)
+    src = await db.get(SecondarySource, source_id)
+    if not src:
+        raise HTTPException(404, "Secondary source not found")
+    return src
 
 
 @router.post("", response_model=SecondarySourceResponse, status_code=201)
 async def create_secondary_source(
-    source_in: SecondarySourceCreate,
-    db: AsyncSession = Depends(get_db),
-    api_key: str = Depends(require_api_key),
+    payload: SecondarySourceCreate, db: AsyncSession = Depends(get_db),
 ):
-    """Create a new secondary source. Requires API key."""
-    source = SecondarySource(**source_in.model_dump())
-    db.add(source)
+    src = SecondarySource(**payload.model_dump())
+    db.add(src)
     await db.flush()
-    await db.refresh(source)
-    return SecondarySourceResponse.model_validate(source)
+    await db.refresh(src)
+    return src
 
 
 @router.patch("/{source_id}", response_model=SecondarySourceResponse)
 async def update_secondary_source(
     source_id: int,
-    source_in: SecondarySourceUpdate,
+    payload: SecondarySourceUpdate,
     db: AsyncSession = Depends(get_db),
-    api_key: str = Depends(require_api_key),
 ):
-    """Update a secondary source. Requires API key."""
-    result = await db.execute(select(SecondarySource).where(SecondarySource.id == source_id))
-    source = result.scalar_one_or_none()
-    if not source:
-        raise HTTPException(status_code=404, detail=f"Secondary source {source_id} not found")
-
-    for field, value in source_in.model_dump(exclude_unset=True).items():
-        setattr(source, field, value)
-
+    src = await db.get(SecondarySource, source_id)
+    if not src:
+        raise HTTPException(404, "Secondary source not found")
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(src, field, value)
     await db.flush()
-    await db.refresh(source)
-    return SecondarySourceResponse.model_validate(source)
+    await db.refresh(src)
+    return src
 
 
 @router.delete("/{source_id}", status_code=204)
 async def delete_secondary_source(
-    source_id: int,
-    db: AsyncSession = Depends(get_db),
-    api_key: str = Depends(require_api_key),
+    source_id: int, db: AsyncSession = Depends(get_db),
 ):
-    """Delete a secondary source. Requires API key."""
-    result = await db.execute(select(SecondarySource).where(SecondarySource.id == source_id))
-    source = result.scalar_one_or_none()
-    if not source:
-        raise HTTPException(status_code=404, detail=f"Secondary source {source_id} not found")
-    await db.delete(source)
+    src = await db.get(SecondarySource, source_id)
+    if not src:
+        raise HTTPException(404, "Secondary source not found")
+    await db.delete(src)

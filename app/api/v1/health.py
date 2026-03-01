@@ -1,38 +1,24 @@
-"""
-Health check endpoint.
-"""
-
-from datetime import datetime, timezone
+"""Health-check endpoint."""
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import get_db
-from app.schemas.common import HealthResponse
+from app.api.deps import get_db
 
-router = APIRouter()
+router = APIRouter(tags=["health"])
 
 
-@router.get("/health", response_model=HealthResponse)
-async def health_check(db: AsyncSession = Depends(get_db)) -> HealthResponse:
-    """
-    Check API, database, and Redis connectivity.
-    """
-    db_status = "unknown"
-    redis_status = "unknown"
-
-    # Database check
+@router.get("/health")
+async def health_check(db: AsyncSession = Depends(get_db)):
+    """Return service and database status."""
     try:
         await db.execute(text("SELECT 1"))
-        db_status = "connected"
-    except Exception:
-        db_status = "disconnected"
+        db_status = "healthy"
+    except Exception as exc:
+        db_status = f"unhealthy: {exc}"
 
-    return HealthResponse(
-        status="ok",
-        version="1.0.0",
-        database=db_status,
-        redis=redis_status,
-        timestamp=datetime.now(timezone.utc),
-    )
+    return {
+        "status": "ok" if db_status == "healthy" else "degraded",
+        "database": db_status,
+    }

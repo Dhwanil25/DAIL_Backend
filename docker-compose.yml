@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   # ───────────────────────── PostgreSQL ─────────────────────────
   db:
@@ -19,18 +17,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # ───────────────────────── Redis ──────────────────────────────
-  redis:
-    image: redis:7-alpine
-    restart: unless-stopped
-    ports:
-      - "6380:6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-
   # ───────────────────────── FastAPI App ────────────────────────
   api:
     build: .
@@ -41,13 +27,8 @@ services:
       - .env
     environment:
       DATABASE_URL: postgresql+asyncpg://dail_user:dail_secret_changeme@db:5432/dail
-      REDIS_URL: redis://redis:6379/0
-      CELERY_BROKER_URL: redis://redis:6379/1
-      CELERY_RESULT_BACKEND: redis://redis:6379/2
     depends_on:
       db:
-        condition: service_healthy
-      redis:
         condition: service_healthy
     volumes:
       - ./app:/app/app     # live reload in development
@@ -56,46 +37,6 @@ services:
         --host 0.0.0.0
         --port 8000
         --reload
-
-  # ───────────────────────── Celery Worker ──────────────────────
-  celery_worker:
-    build: .
-    restart: unless-stopped
-    env_file:
-      - .env
-    environment:
-      DATABASE_URL: postgresql+asyncpg://dail_user:dail_secret_changeme@db:5432/dail
-      REDIS_URL: redis://redis:6379/0
-      CELERY_BROKER_URL: redis://redis:6379/1
-      CELERY_RESULT_BACKEND: redis://redis:6379/2
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    command: >
-      celery -A app.tasks.celery_app worker
-        --loglevel=info
-        --concurrency=4
-        -Q ingestion,classification,sync,celery
-
-  # ───────────────────────── Celery Beat (scheduler) ───────────
-  celery_beat:
-    build: .
-    restart: unless-stopped
-    env_file:
-      - .env
-    environment:
-      DATABASE_URL: postgresql+asyncpg://dail_user:dail_secret_changeme@db:5432/dail
-      REDIS_URL: redis://redis:6379/0
-      CELERY_BROKER_URL: redis://redis:6379/1
-      CELERY_RESULT_BACKEND: redis://redis:6379/2
-    depends_on:
-      redis:
-        condition: service_healthy
-    command: >
-      celery -A app.tasks.celery_app beat
-        --loglevel=info
 
   # ───────────────────────── Alembic migration runner ──────────
   migrate:

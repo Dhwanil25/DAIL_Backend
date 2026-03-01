@@ -1,40 +1,37 @@
-"""
-Document schemas — request/response models for Documents API.
-"""
+"""Pydantic schemas for the Documents table."""
 
-from datetime import date, datetime
+from __future__ import annotations
+
+from datetime import date as DateType
 from typing import Optional
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, ConfigDict
 
 
 class DocumentBase(BaseModel):
-    document_title: Optional[str] = None
-    document_type: Optional[str] = "other"
+    case_number: int
+    court: Optional[str] = None
+    date: Optional[DateType] = None
     link: Optional[str] = None
     cite_or_reference: Optional[str] = None
-    document_date: Optional[date] = None
-    page_count: Optional[int] = None
-    mime_type: Optional[str] = Field(None, max_length=100)
+    document: Optional[str] = None
 
 
 class DocumentCreate(DocumentBase):
-    case_id: int
-    docket_id: Optional[int] = None
-
-
-class DocumentUpdate(DocumentBase):
+    """Create a document. case_number required."""
     pass
+
+
+class DocumentUpdate(BaseModel):
+    """Update a document. All fields optional."""
+    case_number: Optional[int] = None
+    court: Optional[str] = None
+    date: Optional[DateType] = None
+    link: Optional[str] = None
+    cite_or_reference: Optional[str] = None
+    document: Optional[str] = None
 
 
 class DocumentResponse(DocumentBase):
     model_config = ConfigDict(from_attributes=True)
     id: int
-    case_id: int
-    docket_id: Optional[int] = None
-    courtlistener_recap_id: Optional[int] = None
-    pacer_doc_id: Optional[str] = None
-    storage_url: Optional[str] = None
-    file_size_bytes: Optional[int] = None
-    created_at: datetime
-    updated_at: datetime

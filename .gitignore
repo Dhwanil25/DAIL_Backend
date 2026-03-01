@@ -56,3 +56,11 @@ logs/
 # Temporary
 tmp/
 temp/
+
+# Data files (Caspio exports — keep local, seed via script)
+*.xlsx
+*.docx
+
+# Outdated assets
+er_diagram.jsx
+image.png

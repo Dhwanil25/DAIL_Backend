@@ -1,73 +1,36 @@
 """
-Docket model — represents a court docket entry linked to a DAIL case.
-
-Stores docket numbers, filing metadata, and links to CourtListener/PACER.
+SQLAlchemy ORM model for the Dockets table.
+Maps 1:1 to Caspio Docket_Table.
+FK: case_number -> cases.record_number
 """
 
-from datetime import date, datetime
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import (
-    String,
-    Text,
-    Integer,
-    Date,
-    DateTime,
-    ForeignKey,
-    func,
-)
+from sqlalchemy import ForeignKey, Integer, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+
+if TYPE_CHECKING:
+    from app.models.case import Case
 
 
 class Docket(Base):
     __tablename__ = "dockets"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-
-    # ── Foreign Keys ─────────────────────────────────────────────────
-    case_id: Mapped[int] = mapped_column(
-        ForeignKey("cases.id", ondelete="CASCADE"), nullable=False, index=True
+    case_number: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("cases.record_number", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
-    court_id: Mapped[Optional[int]] = mapped_column(
-        ForeignKey("courts.id", ondelete="SET NULL"), index=True
-    )
-
-    # ── Docket Identifiers ───────────────────────────────────────────
-    docket_number: Mapped[Optional[str]] = mapped_column(String(100), index=True)
-    court_name: Mapped[Optional[str]] = mapped_column(String(500))
-
-    # ── CourtListener Integration ────────────────────────────────────
-    courtlistener_docket_id: Mapped[Optional[int]] = mapped_column(
-        Integer, unique=True, index=True
-    )
-    courtlistener_url: Mapped[Optional[str]] = mapped_column(Text)
-    pacer_case_id: Mapped[Optional[str]] = mapped_column(String(50))
-
-    # ── Filing Metadata ──────────────────────────────────────────────
-    date_filed: Mapped[Optional[date]] = mapped_column(Date, index=True)
-    date_terminated: Mapped[Optional[date]] = mapped_column(Date)
-    nature_of_suit: Mapped[Optional[str]] = mapped_column(String(500))
-
-    # ── Party Info (denormalized summary) ────────────────────────────
-    plaintiff_summary: Mapped[Optional[str]] = mapped_column(Text)
-    defendant_summary: Mapped[Optional[str]] = mapped_column(Text)
-
-    # ── Link ─────────────────────────────────────────────────────────
+    court: Mapped[Optional[str]] = mapped_column(Text)
+    number: Mapped[Optional[str]] = mapped_column(Text)
     link: Mapped[Optional[str]] = mapped_column(Text)
 
-    # ── Timestamps ───────────────────────────────────────────────────
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
-    )
-
-    # ── Relationships ────────────────────────────────────────────────
-    case: Mapped["Case"] = relationship(back_populates="dockets")  # type: ignore[name-defined]
-    court: Mapped[Optional["Court"]] = relationship(back_populates="dockets")  # type: ignore[name-defined]
+    # ── Relationship ─────────────────────────────────────────────────
+    case: Mapped["Case"] = relationship(back_populates="dockets")
 
     def __repr__(self) -> str:
-        return f"<Docket(id={self.id}, number='{self.docket_number}')>"
+        return f"<Docket(id={self.id}, case_number={self.case_number}, number='{self.number}')>"
