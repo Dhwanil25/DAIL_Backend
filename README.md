@@ -1,8 +1,8 @@
-# DAIL Backend
+# LIA — Legal Intelligence Assistant
 
-**Database of AI Litigation** — A REST API for tracking, classifying, and analyzing AI-related litigation, built with **FastAPI + PostgreSQL**.
+**Legal Intelligence Assistant** — A full-stack platform for tracking, classifying, and analyzing AI-related litigation. Built with **FastAPI + PostgreSQL** on the backend and **Next.js 15** on the frontend.
 
-Migrated from legacy Caspio platform — schema matches Caspio exports exactly. Includes optional LLM integration (OpenAI GPT-4o for search/summarisation, Google Gemini for document image extraction).
+Migrated from the legacy Caspio platform — schema matches Caspio exports exactly. Includes optional LLM integration (OpenAI GPT-4o for search/summarisation, Google Gemini for document image extraction).
 
 ---
 
@@ -11,10 +11,10 @@ Migrated from legacy Caspio platform — schema matches Caspio exports exactly. 
 ```bash
 # 1. Clone and configure
 git clone https://github.com/Dhwanil25/DAIL_Backend.git
-cd DAIL_Backend
+cd LIA_Backend
 cp .env.example .env          # edit AI keys if desired
 
-# 2. Start services
+# 2. Start backend services (PostgreSQL + FastAPI)
 docker compose up -d
 
 # 3. Run database migrations
@@ -24,10 +24,18 @@ docker compose run --rm migrate
 docker compose build api      # rebuild to include xlsx files
 docker compose up -d api
 docker compose exec api python scripts/seed_from_excel.py
+
+# 5. Start the frontend
+cd frontend
+npm install
+npm run dev
 ```
 
-The API is now available at **http://localhost:8000**
-Interactive docs at **http://localhost:8000/docs**
+| Service | URL |
+|---------|-----|
+| **Frontend Dashboard** | http://localhost:3000 |
+| **REST API** | http://localhost:8000/api/v1 |
+| **Interactive API Docs** | http://localhost:8000/docs |
 
 ---
 
@@ -35,6 +43,9 @@ Interactive docs at **http://localhost:8000/docs**
 
 | Component | Technology |
 |-----------|-----------|
+| Frontend | Next.js 15 (App Router, Turbopack) |
+| UI | React 19, Tailwind CSS v4, Framer Motion |
+| Charts | Recharts |
 | API Framework | FastAPI (Python 3.12) |
 | Database | PostgreSQL 16 (tsvector, GIN indexes) |
 | ORM | SQLAlchemy 2.0 (async) |
@@ -60,38 +71,65 @@ All child tables reference `cases.record_number` via foreign key.
 ## Project Structure
 
 ```
-DAIL_Backend/
-├── app/
-│   ├── main.py                # FastAPI application
-│   ├── config.py              # Pydantic settings
-│   ├── database.py            # Async SQLAlchemy engine
-│   ├── models/                # 4 SQLAlchemy ORM models
-│   │   ├── case.py            # Cases (35 columns)
-│   │   ├── docket.py          # Dockets (FK → cases)
-│   │   ├── document.py        # Documents (FK → cases)
+LIA_Backend/
+├── app/                           # FastAPI backend
+│   ├── main.py                    # FastAPI application entry point
+│   ├── config.py                  # Pydantic settings
+│   ├── database.py                # Async SQLAlchemy engine
+│   ├── models/                    # 4 SQLAlchemy ORM models
+│   │   ├── case.py                # Cases (35 columns)
+│   │   ├── docket.py              # Dockets (FK → cases)
+│   │   ├── document.py            # Documents (FK → cases)
 │   │   └── secondary_source.py
-│   ├── schemas/               # Pydantic request/response schemas
-│   ├── api/v1/                # Versioned REST endpoints
-│   │   ├── cases.py           # Full CRUD + record-number lookup
-│   │   ├── dockets.py         # CRUD filtered by case
-│   │   ├── documents.py       # CRUD filtered by case
+│   ├── schemas/                   # Pydantic request/response schemas
+│   ├── api/v1/                    # Versioned REST endpoints
+│   │   ├── cases.py               # Full CRUD + record-number lookup
+│   │   ├── dockets.py             # CRUD filtered by case
+│   │   ├── documents.py           # CRUD filtered by case
 │   │   ├── secondary_sources.py
-│   │   ├── search.py          # Full-text search (tsvector)
-│   │   ├── analytics.py       # Dashboard stats
-│   │   ├── ai.py              # LLM endpoints (GPT-4o, Gemini)
-│   │   └── health.py          # Liveness check
+│   │   ├── search.py              # Full-text search (tsvector)
+│   │   ├── analytics.py           # Dashboard stats
+│   │   ├── ai.py                  # LLM endpoints (GPT-4o, Gemini)
+│   │   └── health.py              # Liveness check
 │   └── services/
-│       └── ai_service.py      # GPT-4o + Gemini integration
-├── alembic/                   # Database migrations
+│       └── ai_service.py          # GPT-4o + Gemini integration
+├── frontend/                      # Next.js 15 dashboard
+│   ├── app/                       # App Router pages
+│   │   ├── page.tsx               # Dashboard home
+│   │   ├── cases/                 # Cases list & detail
+│   │   ├── dockets/               # Dockets browser
+│   │   ├── documents/             # Documents browser
+│   │   ├── sources/               # Secondary sources
+│   │   ├── search/                # Global search (all types)
+│   │   ├── analytics/             # Charts & stats
+│   │   ├── ai/                    # AI assistant chat
+│   │   └── help/                  # Documentation
+│   ├── components/
+│   │   ├── layout/                # Sidebar, topbar, command palette
+│   │   └── dashboard/             # Case table, intelligence panel
+│   ├── lib/                       # API client, hooks, utilities
+│   └── types/                     # TypeScript interfaces
+├── alembic/                       # Database migrations
 │   └── versions/
 │       ├── 001_caspio_schema.py
 │       └── 002_add_document_field.py
 ├── scripts/
-│   └── seed_from_excel.py     # Import Caspio XLSX → PostgreSQL
+│   └── seed_from_excel.py         # Import Caspio XLSX → PostgreSQL
 ├── docker-compose.yml
 ├── Dockerfile
 └── requirements.txt
 ```
+
+---
+
+## Frontend Features
+
+- **Dashboard** — Live stats, recent cases table, AI intelligence panel
+- **Global Search** — Real-time search across all 4 data types with category tabs
+- **Analytics** — Case status pie chart, yearly filing bar chart, area-of-application breakdown
+- **AI Assistant** — Chat interface powered by GPT-4o for NL queries and case summarization
+- **Full CRUD** — Browse, filter, and manage cases, dockets, documents, and secondary sources
+- **Command Palette** — `⌘K` quick navigation across all pages
 
 ---
 
@@ -134,14 +172,17 @@ The script clears existing data, reads all Excel sheets, maps columns to DB fiel
 ## Development
 
 ```bash
-# Install dependencies locally
+# Backend — run locally (requires PostgreSQL)
 pip install -r requirements.txt
-
-# Run locally (requires PostgreSQL)
 uvicorn app.main:app --reload
 
-# Run with Docker
+# Backend — run with Docker
 docker compose up -d
+
+# Frontend — development server
+cd frontend
+npm install
+npm run dev
 ```
 
 ---

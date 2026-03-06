@@ -17,7 +17,7 @@ router = APIRouter(prefix="/dockets", tags=["dockets"])
 @router.get("", response_model=PaginatedResponse[DocketResponse])
 async def list_dockets(
     skip: int = Query(0, ge=0),
-    limit: int = Query(20, ge=1, le=100),
+    limit: int = Query(20, ge=1, le=500),
     case_number: Optional[int] = None,
     db: AsyncSession = Depends(get_db),
 ):

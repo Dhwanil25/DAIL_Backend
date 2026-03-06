@@ -1,0 +1,144 @@
+@import "tailwindcss";
+
+@theme {
+  --color-navy-deep: #0b1120;
+  --color-navy-surface: #111827;
+  --color-teal-accent: #14f1d9;
+  --color-violet-accent: #7c3aed;
+}
+
+:root {
+  --background: #0b1120;
+  --foreground: #f9fafb;
+}
+
+html.light {
+  --background: #f4f6f9;
+  --foreground: #111827;
+}
+
+html.light body {
+  color: #111827;
+  background: #f4f6f9;
+}
+
+html.light .bg-navy-deep {
+  background-color: #fff;
+}
+
+html.light .bg-navy-surface {
+  background-color: #f9fafb;
+}
+
+html.light .border-white\/5 {
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+html.light .border-white\/10 {
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+html.light .bg-white\/5 {
+  background-color: rgba(0, 0, 0, 0.04);
+}
+
+html.light .bg-white\/10 {
+  background-color: rgba(0, 0, 0, 0.06);
+}
+
+html.light .text-white {
+  color: #111827;
+}
+
+html.light .text-zinc-400 {
+  color: #6b7280;
+}
+
+html.light .text-zinc-500 {
+  color: #9ca3af;
+}
+
+html.light .text-zinc-600 {
+  color: #6b7280;
+}
+
+html.light .placeholder-zinc-500::placeholder,
+html.light .placeholder-zinc-600::placeholder {
+  color: #9ca3af;
+}
+
+html.light .ring-white\/5 {
+  --tw-ring-color: rgba(0, 0, 0, 0.08);
+}
+
+html.light .divide-white\/5 > * + * {
+  border-color: rgba(0, 0, 0, 0.06);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 14px;
+}
+
+@media (min-width: 1280px) {
+  html {
+    font-size: 15px;
+  }
+}
+
+@media (min-width: 1536px) {
+  html {
+    font-size: 16px;
+  }
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.3s, color 0.3s;
+  overflow-x: hidden;
+}
+
+::-webkit-scrollbar {
+  width: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1f2937;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #374151;
+}
+
+html.light ::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+}
+
+html.light ::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+@media (max-width: 640px) {
+  html {
+    font-size: 13px;
+  }
+}
+
+@utility glass-panel {
+  backdrop-filter: blur(12px);
+  background-color: rgba(17, 24, 39, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 0.75rem;
+}

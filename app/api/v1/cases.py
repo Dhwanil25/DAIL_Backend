@@ -23,7 +23,7 @@ router = APIRouter(prefix="/cases", tags=["cases"])
 @router.get("", response_model=PaginatedResponse[CaseResponse])
 async def list_cases(
     skip: int = Query(0, ge=0),
-    limit: int = Query(20, ge=1, le=100),
+    limit: int = Query(20, ge=1, le=500),
     status: Optional[str] = None,
     jurisdiction_type: Optional[str] = None,
     area_of_application: Optional[str] = None,

@@ -17,7 +17,7 @@ router = APIRouter(prefix="/documents", tags=["documents"])
 @router.get("", response_model=PaginatedResponse[DocumentResponse])
 async def list_documents(
     skip: int = Query(0, ge=0),
-    limit: int = Query(20, ge=1, le=100),
+    limit: int = Query(20, ge=1, le=1000),
     case_number: Optional[int] = None,
     db: AsyncSession = Depends(get_db),
 ):
